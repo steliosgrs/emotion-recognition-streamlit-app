@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 import streamlit as st
 import tensorflow
@@ -11,7 +12,8 @@ from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfigura
 import av
 import copy
 import random
-# import
+from PIL import Image
+import os
 from utils import *
 # from streamlit.scriptrunner import get_script_run_ctx as get_report_ctx
 from streamlit.scriptrunner import add_script_run_ctx as add_report_ctx
@@ -29,7 +31,6 @@ Current_emotion = []
 # t = thread.start()
 last5frames = []
 lock = th.Lock()
-
 emotions_list=[]
 
 
@@ -43,9 +44,6 @@ except Exception:
 
 RTC_CONFIGURATION = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
 
-
-# def processor_factory():
-#     return FaceEmotion(current_emotion, old_curr_emo, curr_time, show_fps=show_fps)
 
 def most_frequent(List):
     counter = 0
@@ -63,14 +61,111 @@ def most_frequent(List):
     return emotion
 
 
+def emotion_analysis(emotions):
+    objects = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
+    y_pos = np.arange(len(objects))
+
+    plt.bar(y_pos, emotions, align='center', alpha=0.5)
+    plt.xticks(y_pos, objects)
+    plt.ylabel('percentage')
+    plt.title('emotion')
+
+    plt.show()
 
 
+def facecrop(image,name):
 
+    frame = cv2.imread(image)
+    # frame = cv2.cvtCoLOR(image, cv2.IMREAD_COLOR)
+    # image = image.to_ndarray(format="bgr24")
+    # Load the cascade
+    cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_alt.xml')
+
+    face_roi = cv2.imread(image)
+    # img = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    img = cv2.imread(image,cv2.COLOR_BGR2GRAY)
+    # print(img.shape)
+    faces = cascade.detectMultiScale(img,1.1,4)
+    for x,y,w,h in faces:
+        roi_gray = img[y:y+h, x:x+w]
+        roi_color = frame[y:y+h, x:x+w]
+        cv2.rectangle(frame,(x,y), (x+w , y+h), (255,0,0), 2)
+        facess = cascade.detectMultiScale(roi_gray)
+        if len(facess) == 0:
+            print('Face not detected\n')
+        else:
+            for (ex, ey, ew, eh) in facess:
+                # Crop the face
+                face_roi = roi_color[ey:ey+eh, ex:ex+ew]
+                dir =os.path.join('.', f"Cropped {name}")
+                # print(dir)
+                # print(face_roi)
+                cv2.imwrite(dir, face_roi)
+
+                # print(type(face_roi))
+
+    # plt.imshow(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    st.image(frame)
+    # st.image(f"Cropped {name}")
+
+    return  face_roi
+
+def image_classification(image):
+
+    print(type(image))
+    # Crop only the face
+    image = image[::-1]
+    index = image.find('\\')
+    image = image[::-1]
+    name = image[-index:]
+    # print(f"NAME {name}")
+
+
+    # fig = plt.figure()
+    # plt.imshow(show_image)
+    # image_shape = show_image.shape
+    # print(show_image.shape)
+    # show_image = show_image.ravel()
+    # print(show_image.shape)
+
+    # show_image = show_image.astype('float32')
+    # show_image = show_image.ravel()
+    # print(show_image.shape)
+    # fig = plt.figure(show_image,figsize=tuple(image_shape))
+    # fig = plt.figure()
+    # st.pyplot(fig)
+    cropped = facecrop(image,name)
+    # show_image = plt.imshow(image)
+
+
+    res_path = 'Cropped ' + name
+    # res_path = '.\\' + 'Cropped ' + name
+    # true_img = image.load_img(res_path)
+    print(f"RES PATH {res_path}")
+
+    img = keras.preprocessing.image.load_img(res_path, target_size=(48, 48), color_mode="grayscale")
+
+    x = keras.preprocessing.image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x /= 255
+    custom = classifier.predict(x)
+    emotion_analysis(custom[0])
+
+    prediction = classifier.predict(x)[0]
+    maxindex = int(np.argmax(prediction))
+    finalout = emotion_dict[maxindex]
+    output = str(finalout)
+    st.write(f"The face in the image looking {output}")
+    x = np.array(x, 'float32')
+    x = x.reshape([48, 48])
+    return output
+
+
+# col1, col2 = st.columns(2, gap='small')
 
 class FaceEmotion(VideoProcessorBase):
 
-    def __init__(self,showfps=0) -> None:
-        self.showfps = showfps
 
     def Face_Emotion(self, frame):
         output=""
@@ -130,8 +225,9 @@ class FaceEmotion(VideoProcessorBase):
     def recv(self, frame):
         # img = frame.to_ndarray(format="bgr24")
         # img = cv2.flip(img, 1)
-        # image = copy.deepcopy(img)
         # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # image = copy.deepcopy(img)
 
         img, result = self.Face_Emotion(frame)
 
@@ -140,6 +236,11 @@ class FaceEmotion(VideoProcessorBase):
         else:
             self.current_emotion = result[0]
             return  av.VideoFrame.from_ndarray(img, format="bgr24")
+
+def file_selector(folder_path='.'):
+    filenames = os.listdir(folder_path)
+    selected_filename = st.selectbox('Select a file', filenames)
+    return os.path.join(folder_path, selected_filename)
 
 def main():
 
@@ -161,8 +262,6 @@ def main():
                  """)
 
     elif choice == "Webcam Emotion Recognition":
-        col1 = st.columns(2, gap='small')
-
         st.header("Webcam Real-time Emotion Recognition")
         html_temp_Webcam1 = """<div style="background-color:#6D7B8D;padding:10px">
                                 <h4 style="color:white;text-align:center;">
@@ -174,36 +273,74 @@ def main():
                                 <li>Εκίνηση της κάμερας</li>
                                 </ol></div></br>"""
         st.markdown(html_temp_Webcam1, unsafe_allow_html=True)
+        # state = True
+        stream = webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, rtc_configuration=RTC_CONFIGURATION,
+                                 media_stream_constraints={"video": True, "audio": False},
+                                 video_processor_factory=FaceEmotion,
+                                 async_processing=True)
 
-
-        with col1:
-            # current_emotion = ""
-            # old_curr_emo = ""
-            # curr_time = ""
-            # show_fps = st.checkbox("Show FPS", value=True)
-
-            # state = True
-            webrtc_streamer(key="example", mode=WebRtcMode.SENDRECV, rtc_configuration=RTC_CONFIGURATION,
-                            media_stream_constraints={"video": True, "audio": False},
-                            desired_playing_state=state, video_processor_factory=FaceEmotion,
-                            async_processing=True)
-            # possible_emotion = Emotion_detection(state)
-            # desired_playing_state = state,
-
-
-        # with col2:
-        #     col2.header("Text")
-        #
-        #     html_column2 = """<div style="background-color:#6D7B8D;padding:10px">
-        #                     <h4 style="color:white;">POU EISAI2</h4>
-        #                     </div>
-        #                     </br>"""
-        #     st.markdown(html_column2, unsafe_allow_html=True)
 
     elif choice == "Analyze Image Emotion":
+
         st.header("Webcam Live Feed")
         st.write("Click to upload your image ")
+        st.write("Emotion Classification")
 
+
+        # Select a file
+        if st.checkbox('Select a file in current directory'):
+            folder_path = '.'
+            if st.checkbox('Change directory'):
+                folder_path = st.text_input('Enter folder path', '.')
+            image_file = file_selector(folder_path=folder_path)
+            st.write('You selected `%s`' % image_file)
+
+        # if image_file is not ".":
+            domi_emotion = image_classification(image_file)
+
+        show_image = cv2.imread(image_file)
+        show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+        col1, col2 = st.columns(2, gap='small')
+        # with col1:
+            # st.image(show_image)
+        # with col2:
+        #
+        #     st.write(domi_emotion)
+        print(domi_emotion)
+
+
+
+        # upload = st.file_uploader("Image upload")
+        # if upload:
+        #     upload.getvalue()
+        # # data = uploaded_file.read()
+        # classify_and_localize = st.button("Classify and Localize image")
+        # if classify_and_localize:
+        #     st.write("")
+        #     st.write("Classifying and Localizing...")
+
+        # Multiple images
+        # uploaded_file = st.file_uploader(label="Upload Files", type=['png', 'jpeg','jpg'],accept_multiple_files = True)
+        #
+        # # Single Image
+        # uploaded_file = st.file_uploader(label="Upload Files", type=['png', 'jpeg', 'jpg'])
+        # print(type(uploaded_file))
+        # if uploaded_file is not None:
+        #     bytes_data = uploaded_file.read()
+        #     # image = Image.open(bytes_data)
+        #     # image = np.fromstring(bytes_data, dtype="uint8")
+        #
+        #     image = np.asarray(bytearray(bytes_data))
+        #     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+        #     domi_emotion = image_classification(image)
+        #     st.write(domi_emotion)
+        #
+        #     # bytes_data = uploaded_file[0].read()
+        #     # for image in uploaded_file:
+        #     #     bytes_data = image.read()
+        #     inputShape = (48, 48)
+
+            # image = cv2.imread(image,cv2. BYTES2b) .open(BytesIO(bytes_data))
 
     elif choice == "About":
         st.subheader("Λίγα λόγια για την εφαρμογή")
