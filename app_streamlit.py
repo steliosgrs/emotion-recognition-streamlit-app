@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+from io import StringIO
 import streamlit as st
 import tensorflow
 from tensorflow import keras
@@ -62,11 +63,6 @@ def most_frequent(List):
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 def emotion_analysis(emotions):
-
-    fig = plt.figure()
-    # # fig, ax = plt.subplots()
-    # ax = fig.add_subplot(111)
-
     # objects = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
     objects = ('angry', 'disgust', 'fear', 'happy','neutral', 'sad', 'surprise' )
     y_pos = np.arange(len(objects))
@@ -78,28 +74,37 @@ def emotion_analysis(emotions):
 
     # st.pyplot(fig)
 
+    # fig = plt.figure()
     # fig = plt.bar(y_pos, emotions, align='center', alpha=0.5)
     # fig = plt.xticks(y_pos, objects)
     # fig = plt.ylabel('percentage')
     # fig = plt.title('emotion')
 
-    plot_em= plt.show()
+    plot_em = plt.show()
     # st.pyplot(plot_em)
     return plot_em
 
 
 def facecrop(image,name):
 
+    image = image[::-1]
+    index = image.find('\\')
+    image = image[::-1]
+    dir_name = image[:-index]
+
+    # print(dir_name)
+
     frame = cv2.imread(image)
     # frame = cv2.cvtCoLOR(image, cv2.IMREAD_COLOR)
     # image = image.to_ndarray(format="bgr24")
+
     # Load the cascade
     cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_alt.xml')
 
     face_roi = cv2.imread(image)
     # img = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     img = cv2.imread(image,cv2.COLOR_BGR2GRAY)
-    # print(img.shape)
+
     faces = cascade.detectMultiScale(img,1.1,4)
     for x,y,w,h in faces:
         roi_gray = img[y:y+h, x:x+w]
@@ -112,11 +117,16 @@ def facecrop(image,name):
             for (ex, ey, ew, eh) in facess:
                 # Crop the face
                 face_roi = roi_color[ey:ey+eh, ex:ex+ew]
+
+                # os.path.join(dir_name, 'cropped')
                 dir =os.path.join('.', f"Cropped {name}")
+                # dir = os.path.join(dir_name, f"Cropped {name}")
                 # print(dir)
                 # print(face_roi)
+                # cv2.imwrite(dir, face_roi)
                 cv2.imwrite(dir, face_roi)
-
+                print(f"auto einai to dir {dir}")
+                # time.sleep(1)
                 # print(type(face_roi))
 
 
@@ -124,32 +134,39 @@ def facecrop(image,name):
 
     # Print original image with face detection box
     st.image(frame)
-
-
-    return  face_roi
+    return face_roi
 
 def image_classification(image):
 
-    print(type(image))
+
     # Crop only the face
     image = image[::-1]
     index = image.find('\\')
     image = image[::-1]
     name = image[-index:]
-    # print(f"NAME {name}")
+
+    print(f"NAME {name}")
 
     cropped = facecrop(image,name)
+    # print(f"auto einai cropped {cropped}")
 
+    # full_path = os.path.join(dir,image)
 
     res_path = 'Cropped ' + name
+    # res_path = os.path.join('Cropped ', name) # δημιουργεί bug
+
+    # full_path2 = os.path.join(dir,res_path)
     # print(f"RES PATH {res_path}")
 
     img = keras.preprocessing.image.load_img(res_path, target_size=(48, 48), color_mode="grayscale")
+    # os.remove(full_path2)
 
     x = keras.preprocessing.image.img_to_array(img)
     x = np.expand_dims(x, axis=0)
     x /= 255
     custom = classifier.predict(x)
+
+
     plothem = emotion_analysis(custom[0])
 
     prediction = classifier.predict(x)[0]
@@ -159,9 +176,8 @@ def image_classification(image):
     st.write(f"The face in the image looking {output}")
     x = np.array(x, 'float32')
     x = x.reshape([48, 48])
+
     return output, plothem
-
-
 
 
 class FaceEmotion(VideoProcessorBase):
@@ -237,32 +253,46 @@ class FaceEmotion(VideoProcessorBase):
             self.current_emotion = result[0]
             return  av.VideoFrame.from_ndarray(img, format="bgr24")
 
+# def dir_selector(folder_path='.'):
+#     dirnames = os.listdir(folder_path)
+#     # selected_filename = st.selectbox('Select a file', filenames)
+#     selected_dirname = st.selectbox('Ο φάκελος ', dirnames)
+#     st.write('Ο φάκελος πρέπει να είναι της μορφής: User\\Pictures\\ ή C:\\Users\\User\\Pictures\\')
+#     return os.path.join(folder_path, selected_dirname)
+
 def file_selector(folder_path='.'):
     filenames = os.listdir(folder_path)
-    selected_filename = st.selectbox('Select a file', filenames)
+    # selected_filename = st.selectbox('Select a file', filenames)
+    selected_filename = st.selectbox('Το αρχείο (.jpg, .png)', filenames)
     return os.path.join(folder_path, selected_filename)
+
 
 def main():
 
     st.title("Αυτόματη Ανίχνευση, Ανάλυση και Αναγνώριση Συναισθημάτων")
-    activiteis = ["Home", "Analyze Image Emotion", "Webcam Emotion Recognition", "About"]
+    # activiteis = ["Home", "Analyze Image Emotion", "Webcam Emotion Recognition", "About"]
+    activiteis = ["Αρχική","Ανάλυση συναισθήματος σε εικόνα", "Ανίχνεση προσώπου μέσω κάμερας",  "About"]
+
     choice = st.sidebar.selectbox("Επιλογή Ενέργειας", activiteis)
     st.sidebar.markdown(""" """)
-    if choice == "Home":
+    # if choice == "Home":
+    if choice == "Αρχική":
         html_temp_home1 = """<div style="background-color:#6D7B8D;padding:10px">
                                             <h4 style="color:white;text-align:center;">
-                                            Εφαρμογή Αναγνώρισης Συναισθημάτων Προσώπου μέσω CNN</h4>
+                                            Εφαρμογή Αναγνώρισης Συναισθημάτων Προσώπου μέσω νευρωνικών δικτών - CNN</h4>
                                             </div>
                                             </br>"""
         st.markdown(html_temp_home1, unsafe_allow_html=True)
         st.write("""
-                 Η εφαρμογή έχει 2 λειτουργίες.
-                 1. Αναγνώριση Συναισθήματος σε πραγματικό χρόνο μέσω κάμερας.
-                 2. Ανάλυση Συναισθήματος σε φωτογραφία.
+                 Η εφαρμογή έχει 2 λειτουργίες:
+                 1. Ανάλυση συναισθήματος σε μια φωτογραφία.
+                 2. Αναγνώριση συναισθήματος σε πραγματικό χρόνο μέσω κάμερας.
                  """)
 
-    elif choice == "Webcam Emotion Recognition":
-        st.header("Webcam Real-time Emotion Recognition")
+    # elif choice == "Webcam Emotion Recognition":
+    elif choice == "Ανίχνεση προσώπου μέσω κάμερας":
+        # st.header("Webcam Real-time Emotion Recognition")
+        st.header("Αναγνώριση συναισθήματος σε πραγματικό χρόνο μέσω κάμερας")
         html_temp_Webcam1 = """<div style="background-color:#6D7B8D;padding:10px">
                                 <h4 style="color:white;text-align:center;">
                                 Εφαρμογή αναγνώρισης συναισθήματος προσώπου</h4>
@@ -280,31 +310,139 @@ def main():
                                  async_processing=True)
 
 
-    elif choice == "Analyze Image Emotion":
-        st.header("Analyze Image Emotion")
-        st.write("Click to upload your image ")
+    # elif choice == "Analyze Image Emotion":
+    elif choice == "Ανάλυση συναισθήματος σε εικόνα":
+        # st.header("Analyze Image Emotion")
+        # st.write("Click to upload your image ")
+        st.header("Ανάλυση εικόνας")
+        st.write("Κάνε κλικ στο κουτάκι εάν θες να ανεβάσεις μια εικόνα ")
 
         # Select a file
-        if st.checkbox('Select a file in current directory'):
+        # if st.checkbox('Select a file in current directory'):
+        if st.checkbox('Επιλογή αρχείου από φάκελο'):
             folder_path = '.'
-            if st.checkbox('Change directory'):
-                folder_path = st.text_input('Enter folder path', 'D:\\EmotionRecognition\\images\\test')
-            image_file = file_selector(folder_path=folder_path)
-            st.write('You selected `%s`' % image_file)
 
-            col1, col2 = st.columns(2, gap='small')
-        # if image_file is not ".":
-            with col1:
-                domi_emotion, bar_emotions = image_classification(image_file)
+            # if st.checkbox('Choose directory'):
+            if st.checkbox('Επιλογή φακέλου'):
+                # my tests
+                # folder_path = st.text_input('Enter folder path', 'D:\\EmotionRecognition\\images\\test')
+                # folder_path = st.text_input('Ο φάκελος', 'D:\\EmotionRecognition\\images\\test')
+                # dirnames = os.listdir('C:\\Users\\')
 
-                # show_image = cv2.imread(image_file)
-                # show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+                folder_path = st.text_input('Ο φάκελος (π.χ C:\\Users\\User\\Pictures\\)', 'C:\\')
+                try:
+                    # dir_path= dir_selector()
+                    # image_file = file_selector(folder_path=dir_path)
+                    image_file = file_selector(folder_path=folder_path)
 
-                print(domi_emotion)
-            with col2:
-                st.pyplot(bar_emotions)
+                    # st.write('You selected `%s`' % image_file)
+                    st.write('Επέλεξες το αρχείο `%s`' % image_file)
+
+                    # print(f"ewwe ewffwefew {image_file}")
 
 
+
+                    col1, col2 = st.columns(2, gap='small')
+                    with col1:
+                        domi_emotion, bar_emotions = image_classification(image_file)
+
+                        # show_image = cv2.imread(image_file)
+                        # show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+
+                        print(domi_emotion)
+                    with col2:
+                        st.pyplot(bar_emotions)
+
+                except:
+                    print("Not found")
+
+
+                # try:
+                #     os.remove(image_file)
+                # except:
+                #     print("REWSAEFD")
+                #     pass
+            # if st.checkbox('Επιλογή φακέλου'):
+            #     # my tests
+            #     folder_path = st.text_input('Enter folder path', '.')
+            #     # folder_path = st.text_input('Enter folder path', 'D:\\EmotionRecognition\\images\\test')
+            #     # folder_path = st.text_input('Ο φάκελος', 'D:\\EmotionRecognition\\images\\test')
+            #     # dirnames = os.listdir('C:\\Users\\')
+            #
+            #     # folder_path = st.text_input('Ο φάκελος (π.χ C:\\Users\\User\\Pictures\\)', 'C:\\')
+            #     # try:
+            #     # dir_path= dir_selector()
+            #     # image_file = file_selector(folder_path=dir_path)
+            #     image_file = file_selector(folder_path=folder_path)
+            #
+            #     # st.write('You selected `%s`' % image_file)
+            #     st.write('Επέλεξες το αρχείο `%s`' % filename)
+            #
+            #     # print(f"ewwe ewffwefew {image_file}")
+            #
+            #     col1, col2 = st.columns(2, gap='small')
+            #     with col1:
+            #         domi_emotion, bar_emotions = image_classification(image_file)
+            #
+            #         # show_image = cv2.imread(image_file)
+            #         # show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+            #
+            #         print(domi_emotion)
+            #     with col2:
+            #         st.pyplot(bar_emotions)
+            #     # except:
+            #     #     pass
+
+        # uploaded_file = st.file_uploader("Choose a file")
+        # if uploaded_file is not None:
+        #     # To read file as bytes:
+        #     bytes_data = uploaded_file.read()
+        #     # bytes_data = uploaded_file.getvalue()
+        #     # st.write(bytes_data)
+        #     decoded = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), -1)
+        #     decoded = cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)
+        #     filename = uploaded_file.name
+        #     st.write("filename:", uploaded_file.name)
+        #     # cv2.imwrite()
+        #     # st.image(decoded)
+        #     # plt.imshow(decoded)
+        #     # st.pyplot()
+        #     if filename is not None:
+        #         if st.checkbox('Επιλογή φακέλου'):
+        #             # my tests
+        #             folder_path = st.text_input('Enter folder path', '.')
+        #             # folder_path = st.text_input('Enter folder path', 'D:\\EmotionRecognition\\images\\test')
+        #             # folder_path = st.text_input('Ο φάκελος', 'D:\\EmotionRecognition\\images\\test')
+        #             # dirnames = os.listdir('C:\\Users\\')
+        #
+        #             # folder_path = st.text_input('Ο φάκελος (π.χ C:\\Users\\User\\Pictures\\)', 'C:\\')
+        #         # try:
+        #             # dir_path= dir_selector()
+        #             # image_file = file_selector(folder_path=dir_path)
+        #             image_file = file_selector(folder_path=folder_path)
+        #
+        #             # st.write('You selected `%s`' % image_file)
+        #             st.write('Επέλεξες το αρχείο `%s`' % filename)
+        #
+        #             # print(f"ewwe ewffwefew {image_file}")
+        #
+        #
+        #
+        #             col1, col2 = st.columns(2, gap='small')
+        #             with col1:
+        #                 domi_emotion, bar_emotions = image_classification(image_file)
+        #
+        #                 # show_image = cv2.imread(image_file)
+        #                 # show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+        #
+        #                 print(domi_emotion)
+        #             with col2:
+        #                 st.pyplot(bar_emotions)
+        #             # except:
+        #             #     pass
+
+
+            # st.write(bytes_data)
 
         # upload = st.file_uploader("Image upload")
         # if upload:
@@ -346,7 +484,7 @@ def main():
                                     <br>
                                     <strong>Χρησιμοποιήθηκαν:</strong>
                                     <ol type = "1">
-                                    <li>Το εκπαιδευμένο μοντέλο CNN για την αναγνώριση.</li>
+                                    <li>Το εκπαιδευμένο μοντέλο νευρωνικού δικτύου CNN για την αναγνώριση συναισθήματος.</li>
                                     <li>Η OpenCV βιβλιοθήκη για την λειτουργία της κάμερας σε πραγματικό χρόνο.</li>
                                     <li>Το framework του streamlit για την δημιουργία της Web εφαρμογής.</li>
                                     </ol> 
@@ -354,16 +492,16 @@ def main():
                                     </br>"""
         st.markdown(html_temp_about1, unsafe_allow_html=True)
 
-        # <h5 style="color:white;text-align:center;">Ευχαριστώ </h5>
+
         html_temp4 = """
-                             		<div style="background-color:#98AFC7;padding:10px">
-                             		<h4 style="color:white;text-align:center;">Η εφαρμογή δημιουργήθηκε από τον Στέλιο Γεωργαρά</h4>
+                    <div style="background-color:#98AFC7;padding:10px">
+                    <h4 style="color:white;text-align:center;">Η εφαρμογή δημιουργήθηκε από τον Στέλιο Γεωργαρά</h4>
+                    <h5 style="color:white;text-align:center;">Ευχαριστώ </h5>
+                    </div>
+                    <br></br>
+                    <br></br>"""
 
-                             		</div>
-                             		<br></br>
-                             		<br></br>"""
-
-        st.markdown(html_temp4, unsafe_allow_html=True)
+        # st.markdown(html_temp4, unsafe_allow_html=True)
 
     else:
         pass
