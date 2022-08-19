@@ -60,9 +60,15 @@ def most_frequent(List):
 
     return emotion
 
-
+st.set_option('deprecation.showPyplotGlobalUse', False)
 def emotion_analysis(emotions):
-    objects = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
+
+    fig = plt.figure()
+    # # fig, ax = plt.subplots()
+    # ax = fig.add_subplot(111)
+
+    # objects = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
+    objects = ('angry', 'disgust', 'fear', 'happy','neutral', 'sad', 'surprise' )
     y_pos = np.arange(len(objects))
 
     plt.bar(y_pos, emotions, align='center', alpha=0.5)
@@ -70,7 +76,16 @@ def emotion_analysis(emotions):
     plt.ylabel('percentage')
     plt.title('emotion')
 
-    plt.show()
+    # st.pyplot(fig)
+
+    # fig = plt.bar(y_pos, emotions, align='center', alpha=0.5)
+    # fig = plt.xticks(y_pos, objects)
+    # fig = plt.ylabel('percentage')
+    # fig = plt.title('emotion')
+
+    plot_em= plt.show()
+    # st.pyplot(plot_em)
+    return plot_em
 
 
 def facecrop(image,name):
@@ -104,10 +119,12 @@ def facecrop(image,name):
 
                 # print(type(face_roi))
 
-    # plt.imshow(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
+
     frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+
+    # Print original image with face detection box
     st.image(frame)
-    # st.image(f"Cropped {name}")
+
 
     return  face_roi
 
@@ -121,28 +138,11 @@ def image_classification(image):
     name = image[-index:]
     # print(f"NAME {name}")
 
-
-    # fig = plt.figure()
-    # plt.imshow(show_image)
-    # image_shape = show_image.shape
-    # print(show_image.shape)
-    # show_image = show_image.ravel()
-    # print(show_image.shape)
-
-    # show_image = show_image.astype('float32')
-    # show_image = show_image.ravel()
-    # print(show_image.shape)
-    # fig = plt.figure(show_image,figsize=tuple(image_shape))
-    # fig = plt.figure()
-    # st.pyplot(fig)
     cropped = facecrop(image,name)
-    # show_image = plt.imshow(image)
 
 
     res_path = 'Cropped ' + name
-    # res_path = '.\\' + 'Cropped ' + name
-    # true_img = image.load_img(res_path)
-    print(f"RES PATH {res_path}")
+    # print(f"RES PATH {res_path}")
 
     img = keras.preprocessing.image.load_img(res_path, target_size=(48, 48), color_mode="grayscale")
 
@@ -150,7 +150,7 @@ def image_classification(image):
     x = np.expand_dims(x, axis=0)
     x /= 255
     custom = classifier.predict(x)
-    emotion_analysis(custom[0])
+    plothem = emotion_analysis(custom[0])
 
     prediction = classifier.predict(x)[0]
     maxindex = int(np.argmax(prediction))
@@ -159,10 +159,10 @@ def image_classification(image):
     st.write(f"The face in the image looking {output}")
     x = np.array(x, 'float32')
     x = x.reshape([48, 48])
-    return output
+    return output, plothem
 
 
-# col1, col2 = st.columns(2, gap='small')
+
 
 class FaceEmotion(VideoProcessorBase):
 
@@ -281,32 +281,28 @@ def main():
 
 
     elif choice == "Analyze Image Emotion":
-
-        st.header("Webcam Live Feed")
+        st.header("Analyze Image Emotion")
         st.write("Click to upload your image ")
-        st.write("Emotion Classification")
-
 
         # Select a file
         if st.checkbox('Select a file in current directory'):
             folder_path = '.'
             if st.checkbox('Change directory'):
-                folder_path = st.text_input('Enter folder path', '.')
+                folder_path = st.text_input('Enter folder path', 'D:\\EmotionRecognition\\images\\test')
             image_file = file_selector(folder_path=folder_path)
             st.write('You selected `%s`' % image_file)
 
+            col1, col2 = st.columns(2, gap='small')
         # if image_file is not ".":
-            domi_emotion = image_classification(image_file)
+            with col1:
+                domi_emotion, bar_emotions = image_classification(image_file)
 
-        show_image = cv2.imread(image_file)
-        show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
-        col1, col2 = st.columns(2, gap='small')
-        # with col1:
-            # st.image(show_image)
-        # with col2:
-        #
-        #     st.write(domi_emotion)
-        print(domi_emotion)
+                # show_image = cv2.imread(image_file)
+                # show_image = cv2.cvtColor(show_image, cv2.COLOR_RGB2BGR)
+
+                print(domi_emotion)
+            with col2:
+                st.pyplot(bar_emotions)
 
 
 
