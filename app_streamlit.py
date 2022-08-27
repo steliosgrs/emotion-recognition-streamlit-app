@@ -63,10 +63,11 @@ def most_frequent(List):
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 def emotion_analysis(emotions):
+
     # objects = ('angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral')
     objects = ('angry', 'disgust', 'fear', 'happy','neutral', 'sad', 'surprise' )
     y_pos = np.arange(len(objects))
-
+    fig = plt.figure()
     plt.bar(y_pos, emotions, align='center', alpha=0.5)
     plt.xticks(y_pos, objects)
     plt.ylabel('percentage')
@@ -80,9 +81,9 @@ def emotion_analysis(emotions):
     # fig = plt.ylabel('percentage')
     # fig = plt.title('emotion')
 
-    plot_em = plt.show()
+    # plot_em = plt.show()
     # st.pyplot(plot_em)
-    return plot_em
+    return fig
 
 
 def facecrop(image,name):
@@ -125,7 +126,7 @@ def facecrop(image,name):
                 # print(face_roi)
                 # cv2.imwrite(dir, face_roi)
                 cv2.imwrite(dir, face_roi)
-                print(f"auto einai to dir {dir}")
+                # print(f"auto einai to dir {dir}")
                 # time.sleep(1)
                 # print(type(face_roi))
 
@@ -139,13 +140,13 @@ def facecrop(image,name):
 def image_classification(image):
 
 
-    # Crop only the face
+    # Take the name of the image
     image = image[::-1]
     index = image.find('\\')
     image = image[::-1]
     name = image[-index:]
 
-    print(f"NAME {name}")
+    # print(f"NAME {name}")
 
     cropped = facecrop(image,name)
     # print(f"auto einai cropped {cropped}")
